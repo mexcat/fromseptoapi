@@ -1,0 +1,9 @@
+services:
+  jsontoapi:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - APP_LOCAL_CONFIG=/app/config/local.json
+    volumes:
+      - ./config:/app/config:ro

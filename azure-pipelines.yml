@@ -1,0 +1,29 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  IMAGE_NAME: 'jsontoapi'
+  TAG: '$(Build.BuildId)'
+  ACR_NAME: 'YOUR_ACR_NAME'
+  ACR_LOGIN: '$(ACR_NAME).azurecr.io'
+
+steps:
+- task: Maven@4
+  inputs:
+    mavenPomFile: 'pom.xml'
+    goals: 'package -DskipTests'
+    publishJUnitResults: false
+
+- task: Docker@2
+  inputs:
+    containerRegistry: 'YOUR-ACR-SERVICE-CONNECTION'
+    repository: '$(IMAGE_NAME)'
+    command: 'buildAndPush'
+    Dockerfile: '**/Dockerfile'
+    tags: |
+      $(TAG)
+      latest
+    buildContext: '$(Build.SourcesDirectory)'

@@ -1,0 +1,63 @@
+{
+  "baseUrl": "https://estate-manager-nar01.preprod.icloud.ingenico.com/",
+  "auth": {
+    "username": "Getnet-CL-API",
+    "password": "Getnet_2025!"
+  },
+  "ChannelData": [
+    {
+      "channel": 1,
+      "folder": "mPOS",
+      "template": "",
+      "version": ""
+    },
+    {
+      "channel": 2,
+      "folder": "POS_Movil",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 3,
+      "folder": "Pin-Pad",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 4,
+      "folder": "POS_Fijo",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 5,
+      "folder": "POS_Integrado",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 6,
+      "folder": "POS_Cloud-to-Cloud",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 7,
+      "folder": "POS_Auto_servicio",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    },
+    {
+      "channel": 8,
+      "folder": "reservado para el futuro",
+      "template": "",
+      "version": ""
+    },
+    {
+      "channel": 9,
+      "folder": "POS_Multi_comercio",
+      "template": "SantanderAppParamsDevDX",
+      "version": "00004"
+    }
+  ]
+}
