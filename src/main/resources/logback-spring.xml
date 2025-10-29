@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property name="LOG_PATH" value="${LOG_PATH:-/app/logs}"/>
+
+  <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_PATH}/audit.log</file>
+    <encoder>
+      <pattern>%msg%n</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_PATH}/audit-%d{yyyy-ww}.log.gz</fileNamePattern>
+      <maxHistory>12</maxHistory>
+      <totalSizeCap>5GB</totalSizeCap>
+      <cleanHistoryOnStart>true</cleanHistoryOnStart>
+    </rollingPolicy>
+  </appender>
+
+  <root level="OFF"/>
+
+  <logger name="cl.getnet.jsontoapi.audit" level="INFO" additivity="false">
+    <appender-ref ref="AUDIT_FILE"/>
+  </logger>
+</configuration>

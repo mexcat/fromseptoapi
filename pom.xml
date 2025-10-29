@@ -3,15 +3,11 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
   <groupId>cl.getnet</groupId>
   <artifactId>json-to-api</artifactId>
-  <version>0.1.0</version>
-  <packaging>jar</packaging>
-
+  <version>0.2.0</version>
   <name>json-to-api</name>
-  <description>Spring Boot API that converts incoming JSON into Estate Manager API calls</description>
-
+  <description>Spring Boot API JSON → Estate Manager (A→D)</description>
   <properties>
     <java.version>17</java.version>
     <spring.boot.version>3.3.4</spring.boot.version>
@@ -48,10 +44,6 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-    <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
     </dependency>
@@ -69,11 +61,6 @@
             </goals>
           </execution>
         </executions>
-        <configuration>
-          <image>
-            <name>jsontoapi:${project.version}</name>
-          </image>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

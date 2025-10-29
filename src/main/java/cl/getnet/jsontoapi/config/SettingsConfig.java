@@ -7,10 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 @Configuration
 public class SettingsConfig {
@@ -23,9 +21,7 @@ public class SettingsConfig {
   public LocalSettings localSettings(ObjectMapper mapper) {
     try {
       String envPath = System.getenv("APP_LOCAL_CONFIG");
-      if (envPath == null || envPath.isBlank()) {
-        envPath = System.getenv("LOCAL_CONFIG_PATH");
-      }
+      if (envPath == null || envPath.isBlank()) envPath = System.getenv("LOCAL_CONFIG_PATH");
       String pathToUse = (envPath != null && !envPath.isBlank()) ? envPath : defaultPath;
       log.info("Cargando configuración local desde {}", pathToUse);
       byte[] bytes = Files.readAllBytes(Path.of(pathToUse));

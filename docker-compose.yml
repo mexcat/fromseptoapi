@@ -5,5 +5,7 @@ services:
       - "3000:3000"
     environment:
       - APP_LOCAL_CONFIG=/app/config/local.json
+      - LOG_PATH=/app/logs
     volumes:
       - ./config:/app/config:ro
+      - ./logs:/app/logs
