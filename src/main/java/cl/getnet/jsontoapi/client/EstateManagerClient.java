@@ -162,8 +162,11 @@ public class EstateManagerClient {
     try {
       String validatedSignature = safePathSegment(terminalSignature, "Terminal SIgnature");
 
-      endpoint = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals/signature/"
-          + validatedSignature;
+      String baseUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals/signature";
+      endpoint = UriComponentsBuilder.fromUriString(baseUrl)
+          .pathSegment(validatedSignature)
+          .build()
+          .toUriString();
 
       ResponseEntity<JsonNode> resp = rest.exchange(endpoint, HttpMethod.GET, null, JsonNode.class);
 
@@ -243,7 +246,7 @@ public class EstateManagerClient {
       String validatedFolderId = safePathSegment(folderId, "Folder Id");
 
       String encodedUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals";
-      endpoint = UriComponentsBuilder.fromPath(encodedUrl)
+      endpoint = UriComponentsBuilder.fromUriString(encodedUrl)
           .pathSegment(validatedTerminalId, "parent", validatedFolderId)
           .build()
           .toUriString();
