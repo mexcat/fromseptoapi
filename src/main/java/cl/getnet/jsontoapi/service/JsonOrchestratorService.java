@@ -28,13 +28,15 @@ public class JsonOrchestratorService {
   }
 
   public String normalizeTerminal(String terminal) {
-    if (terminal == null) return null;
+    if (terminal == null)
+      return null;
     terminal = terminal.trim();
     return terminal.endsWith("A") ? terminal : terminal + "A";
   }
 
   public LocalSettings.ChannelInfo findChannelInfo(Integer channel) {
-    if (settings.getChannelData() == null) return null;
+    if (settings.getChannelData() == null)
+      return null;
     return settings.getChannelData().stream()
         .filter(ci -> ci.getChannel() != null && ci.getChannel().equals(channel))
         .findFirst().orElse(null);
@@ -50,7 +52,8 @@ public class JsonOrchestratorService {
     if (folderOpt.isEmpty()) {
       String detail = client.consumeLastError();
       String msg = "carpeta no encontrada";
-      if (detail != null && !detail.isBlank()) msg += " - " + detail;
+      if (detail != null && !detail.isBlank())
+        msg += " - " + detail;
       return OrchestrationResult.fail(msg);
     }
     JsonNode folder = folderOpt.get();
@@ -69,7 +72,8 @@ public class JsonOrchestratorService {
     JsonNode terminalNode = null;
     String terminalId = null;
 
-    if (termOpt.isPresent() && termOpt.get() != null && termOpt.get().hasNonNull("id") && termOpt.get().hasNonNull("signature")) {
+    if (termOpt.isPresent() && termOpt.get() != null && termOpt.get().hasNonNull("id")
+        && termOpt.get().hasNonNull("signature")) {
       terminalNode = termOpt.get();
       terminalId = terminalNode.get("id").asText();
 
@@ -84,7 +88,8 @@ public class JsonOrchestratorService {
         if (!moved) {
           String detail = client.consumeLastError();
           String msg = "no se pudo mover terminal";
-          if (detail != null && !detail.isBlank()) msg += " - " + detail;
+          if (detail != null && !detail.isBlank())
+            msg += " - " + detail;
           return OrchestrationResult.fail(msg);
         }
       }
@@ -93,7 +98,8 @@ public class JsonOrchestratorService {
       String createErr = client.consumeLastError();
       if (created.isEmpty() || created.get() == null || !created.get().hasNonNull("id")) {
         String msg = "no se pudo crear terminal";
-        if (createErr != null && !createErr.isBlank()) msg += " - " + createErr;
+        if (createErr != null && !createErr.isBlank())
+          msg += " - " + createErr;
         return OrchestrationResult.fail(msg);
       }
       terminalNode = created.get();
@@ -110,8 +116,9 @@ public class JsonOrchestratorService {
     boolean updated = client.updateTerminalParams(terminalId, template, version, updateBody);
     if (!updated) {
       String detail = client.consumeLastError();
-      String msg = "no se pudo actualizar parámetros (paso D)";
-      if (detail != null && !detail.isBlank()) msg += " - " + detail;
+      String msg = "no se pudo actualizar parámetros";
+      if (detail != null && !detail.isBlank())
+        msg += " - " + detail;
       return OrchestrationResult.fail(msg);
     }
 
@@ -121,13 +128,21 @@ public class JsonOrchestratorService {
   private JsonNode buildUpdateBody(JsonData data) {
     try {
       String path = System.getenv("APP_PARAM_MAPPING");
-      if (path == null || path.isBlank()) path = "config/param-mapping.json";
+      if (path == null || path.isBlank())
+        path = "config/param-mapping.json";
       Map<String, String> mapping = mapper.readValue(
           new java.io.File(path),
-          mapper.getTypeFactory().constructMapType(Map.class, String.class, String.class)
-      );
+          mapper.getTypeFactory().constructMapType(Map.class, String.class, String.class));
 
-      class Spec { String tipo; int largo; Spec(String t, int l){ this.tipo=t; this.largo=l; } }
+      class Spec {
+        String tipo;
+        int largo;
+
+        Spec(String t, int l) {
+          this.tipo = t;
+          this.largo = l;
+        }
+      }
       java.util.Map<String, Spec> spec = new java.util.HashMap<>();
       spec.put("key_trade", new Spec("num", 6));
       spec.put("min_zero_rate_fees", new Spec("num", 2));
@@ -148,7 +163,8 @@ public class JsonOrchestratorService {
       for (java.lang.reflect.Method m : methods) {
         if (m.getName().startsWith("get")) {
           String field = Character.toLowerCase(m.getName().charAt(3)) + m.getName().substring(4);
-          if (field.equals("class")) continue;
+          if (field.equals("class"))
+            continue;
           Object val = m.invoke(data);
           kv.put(field, val);
         }
@@ -158,16 +174,20 @@ public class JsonOrchestratorService {
         String in = entry.getKey();
         String out = rename.getOrDefault(entry.getValue(), entry.getValue());
         Object val = kv.get(in);
-        if (val == null) continue;
+        if (val == null)
+          continue;
 
         Spec s = spec.get(out);
         String normalized;
         if (s != null && "num".equalsIgnoreCase(s.tipo)) {
           String digits = String.valueOf(val).replaceAll("\\D", "");
-          if (digits.isEmpty()) digits = "0";
+          if (digits.isEmpty())
+            digits = "0";
           if (s.largo > 0) {
-            if (digits.length() > s.largo) digits = digits.substring(0, s.largo);
-            else digits = String.format("%0" + s.largo + "d", Integer.parseInt(digits));
+            if (digits.length() > s.largo)
+              digits = digits.substring(0, s.largo);
+            else
+              digits = String.format("%0" + s.largo + "d", Integer.parseInt(digits));
           }
           normalized = digits;
         } else {
@@ -192,9 +212,12 @@ public class JsonOrchestratorService {
         ObjectNode item = mapper.createObjectNode();
         item.put("key", fn);
         var v = node.get(fn);
-        if (v != null && v.isNumber()) item.set("value", v);
-        else if (v != null && v.isBoolean()) item.set("value", v);
-        else item.put("value", v != null ? v.asText() : "");
+        if (v != null && v.isNumber())
+          item.set("value", v);
+        else if (v != null && v.isBoolean())
+          item.set("value", v);
+        else
+          item.put("value", v != null ? v.asText() : "");
         root.add(item);
       });
       return root;
@@ -204,10 +227,26 @@ public class JsonOrchestratorService {
   public static class OrchestrationResult {
     private final boolean ok;
     private final String message;
-    private OrchestrationResult(boolean ok, String message) { this.ok = ok; this.message = message; }
-    public static OrchestrationResult success() { return new OrchestrationResult(true, ""); }
-    public static OrchestrationResult fail(String msg) { return new OrchestrationResult(false, msg); }
-    public boolean isOk() { return ok; }
-    public String getMessage() { return message; }
+
+    private OrchestrationResult(boolean ok, String message) {
+      this.ok = ok;
+      this.message = message;
+    }
+
+    public static OrchestrationResult success() {
+      return new OrchestrationResult(true, "");
+    }
+
+    public static OrchestrationResult fail(String msg) {
+      return new OrchestrationResult(false, msg);
+    }
+
+    public boolean isOk() {
+      return ok;
+    }
+
+    public String getMessage() {
+      return message;
+    }
   }
 }

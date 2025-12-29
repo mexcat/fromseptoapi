@@ -20,17 +20,19 @@ import java.util.Locale;
 @Component
 public class WeeklyExecutionLogger {
   private static final Logger log = LoggerFactory.getLogger(WeeklyExecutionLogger.class);
-  private final ObjectMapper mapper;
   private final String baseDir;
   private final ZoneId zoneId;
 
-  public WeeklyExecutionLogger(ObjectMapper mapper,
-                               @Value("${app.exec-log.dir:logs}") String baseDir,
-                               @Value("${app.exec-log.timezone:America/Santiago}") String zone) {
-    this.mapper = mapper;
+  public WeeklyExecutionLogger(
+      @Value("${app.exec-log.dir:logs}") String baseDir,
+      @Value("${app.exec-log.timezone:America/Santiago}") String zone) {
     this.baseDir = baseDir == null || baseDir.isBlank() ? "logs" : baseDir;
     ZoneId zid;
-    try { zid = ZoneId.of(zone); } catch (Exception e) { zid = ZoneId.systemDefault(); }
+    try {
+      zid = ZoneId.of(zone);
+    } catch (Exception e) {
+      zid = ZoneId.systemDefault();
+    }
     this.zoneId = zid;
   }
 

@@ -3,6 +3,8 @@ package cl.getnet.jsontoapi.client;
 import cl.getnet.jsontoapi.audit.AuditContext;
 import cl.getnet.jsontoapi.audit.AuditModels;
 import cl.getnet.jsontoapi.config.LocalSettings;
+import cl.getnet.jsontoapi.helpers.SecurityValidator;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -29,34 +31,53 @@ public class EstateManagerClient {
   private final String baseUrl;
 
   private final ThreadLocal<String> lastError = new ThreadLocal<>();
-  private void setLastError(String msg) { lastError.set(msg); }
-  public String consumeLastError() { String s = lastError.get(); lastError.remove(); return s; }
+
+  private void setLastError(String msg) {
+    lastError.set(msg);
+  }
+
+  public String consumeLastError() {
+    String s = lastError.get();
+    lastError.remove();
+    return s;
+  }
 
   public EstateManagerClient(LocalSettings settings, RestTemplateBuilder builder) {
     this.baseUrl = trimTrailingSlash(settings.getBaseUrl());
     this.rest = builder
         .rootUri(this.baseUrl)
-        .basicAuthentication(
-            settings.getAuth().getUsername(),
-            settings.getAuth().getPassword()
-        )
+        .basicAuthentication(settings.getAuth().getUsername(), settings.getAuth().getPassword())
         .setConnectTimeout(Duration.ofSeconds(10))
         .setReadTimeout(Duration.ofSeconds(30))
         .build();
   }
 
   private static String trimTrailingSlash(String s) {
-    if (s == null) return null;
+    if (s == null)
+      return null;
     return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+  }
+
+  private String safePathSegment(String input, String fieldName) {
+    String validated = SecurityValidator.safePathSegment(input, fieldName);
+    if (validated == null || validated.isBlank()) {
+      throw new IllegalArgumentException("Invalid " + fieldName);
+    }
+    return validated;
   }
 
   private JsonNode asJsonNode(Object o) {
     try {
-      if (o == null) return null;
-      if (o instanceof JsonNode jn) return jn;
+      if (o == null)
+        return null;
+      if (o instanceof JsonNode jn)
+        return jn;
       if (o instanceof String s) {
-        try { return MAPPER.readTree(s); }
-        catch (Exception e) { return MAPPER.getNodeFactory().textNode(s); }
+        try {
+          return MAPPER.readTree(s);
+        } catch (Exception e) {
+          return MAPPER.getNodeFactory().textNode(s);
+        }
       }
       return MAPPER.valueToTree(o);
     } catch (Exception e) {
@@ -66,10 +87,11 @@ public class EstateManagerClient {
 
   private void addCall(String method, String url, Object reqBody, int status, Object respBody, long ms) {
     var rec = AuditContext.get();
-    if (rec == null) return;
+    if (rec == null)
+      return;
     AuditModels.ApiCall call = new AuditModels.ApiCall();
     call.method = method;
-    call.url = this.baseUrl + url;
+    call.url = url;
     call.requestBody = asJsonNode(reqBody);
     call.status = status;
     call.responseBody = asJsonNode(respBody);
@@ -77,106 +99,101 @@ public class EstateManagerClient {
   }
 
   private String fmt(HttpClientErrorException ex) {
-    return "HTTP " + ex.getRawStatusCode() + " " + ex.getStatusText()
-        + (ex.getResponseBodyAsString() != null && !ex.getResponseBodyAsString().isBlank()
-           ? " - " + ex.getResponseBodyAsString()
-           : "");
+    return "HTTP " + ex.getStatusCode().value() + " " + ex.getStatusText();
+    // + (ex.getResponseBodyAsString() != null &&
+    // !ex.getResponseBodyAsString().isBlank() ? " - " +
+    // ex.getResponseBodyAsString() : "");
   }
 
   public Optional<JsonNode> getFolder(String signature) {
-    String uri = UriComponentsBuilder.fromPath("/emapi/dms/terminals/criterias/")
-        .queryParam("category", 0)
-        .queryParam("precise", false)
-        .queryParam("recursive", true)
-        .queryParam("signature", signature)
-        .toUriString();
-
     long t0 = System.currentTimeMillis();
+    String endpoint = null;
+    String name = "getFolder";
+
     try {
-      ResponseEntity<JsonNode> resp = rest.exchange(uri, HttpMethod.GET, null, JsonNode.class);
-      addCall("GET", uri, null, resp.getStatusCodeValue(), resp.getBody(), System.currentTimeMillis() - t0);
+      String validateSignature = safePathSegment(signature, "Folder Signature");
 
-      JsonNode node = resp.getBody();
-      if (node == null || node.isNull()) return Optional.empty();
-      if (node.isArray()) {
-        if (node.size() == 0) return Optional.empty();
-        return Optional.ofNullable(node.get(0));
-      }
-      if (node.has("elements") && node.get("elements").isArray() && node.get("elements").size() > 0) {
-        return Optional.of(node.get("elements").get(0));
-      }
-      return Optional.of(node);
+      String encodedUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals/criterias/";
 
-    } catch (HttpClientErrorException.NotFound nf) {
-      String alt = UriComponentsBuilder.fromPath("/emapi/dms/terminals/criterias/")
+      endpoint = UriComponentsBuilder.fromUriString(encodedUrl)
+          .queryParam("category", 0)
           .queryParam("precise", false)
           .queryParam("recursive", true)
-          .queryParam("signature", signature)
+          .queryParam("signature", validateSignature)
+          .build()
           .toUriString();
-      try {
-        ResponseEntity<JsonNode> resp = rest.exchange(alt, HttpMethod.GET, null, JsonNode.class);
-        addCall("GET", alt, null, resp.getStatusCodeValue(), resp.getBody(), System.currentTimeMillis() - t0);
 
-        JsonNode node = resp.getBody();
-        if (node == null) return Optional.empty();
-        if (node.isArray() && node.size() > 0) return Optional.of(node.get(0));
-        if (node.has("elements") && node.get("elements").isArray() && node.get("elements").size() > 0) {
+      ResponseEntity<JsonNode> resp = rest.exchange(endpoint, HttpMethod.GET, null, JsonNode.class);
+      addCall("GET", endpoint, null, resp.getStatusCode().value(), resp.getBody(), System.currentTimeMillis() - t0);
+
+      JsonNode node = resp.getBody();
+
+      if (node == null || node.isNull())
+        return Optional.empty();
+      if (node.isArray()) {
+        if (node.size() > 0)
+          return Optional.of(node.get(0));
+        return Optional.empty();
+      }
+      if (node.has("elements") && node.get("elements").isArray()) {
+        if (node.get("elements").size() > 0) {
           return Optional.of(node.get("elements").get(0));
         }
         return Optional.empty();
-
-      } catch (HttpClientErrorException ex2) {
-        addCall("GET", alt, null, ex2.getRawStatusCode(), ex2.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-        setLastError(fmt(ex2));
-        log.error("getFolder fallback HTTP {}: {}", ex2.getRawStatusCode(), ex2.getResponseBodyAsString());
-        return Optional.empty();
-      } catch (Exception e2) {
-        addCall("GET", alt, null, 599, e2.getMessage(), System.currentTimeMillis() - t0);
-        setLastError("Exception: " + e2.getMessage());
-        log.error("getFolder fallback error: {}", e2.getMessage());
-        return Optional.empty();
       }
+      return Optional.of(node);
 
-    } catch (HttpClientErrorException ex) {
-      addCall("GET", uri, null, ex.getRawStatusCode(), ex.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-      setLastError(fmt(ex));
-      log.error("getFolder HTTP {}: {}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
-      return Optional.empty();
+    } catch (IllegalArgumentException ex) {
+      endpoint = "dms/terminals/criterias/";
+      return IllegalDataShow(endpoint, ex, "GET", name);
+    } catch (HttpClientErrorException ex2) {
+      endpoint = "dms/terminals/criterias/";
+      return HttpDataShow(endpoint, ex2, "GET", name);
     } catch (Exception e) {
-      addCall("GET", uri, null, 599, e.getMessage(), System.currentTimeMillis() - t0);
-      setLastError("Exception: " + e.getMessage());
-      log.error("getFolder error: {}", e.getMessage());
-      return Optional.empty();
+      endpoint = "dms/terminals/criterias/";
+      return ExceptionDataShow(endpoint, e, "GET", name);
     }
   }
 
   public Optional<JsonNode> getTerminalBySignature(String terminalSignature) {
-    String uri = "/emapi/dms/terminals/signature/" + terminalSignature;
     long t0 = System.currentTimeMillis();
+    String endpoint = null;
+    String name = "getTerminalBySignature";
     try {
-      ResponseEntity<JsonNode> resp = rest.exchange(uri, HttpMethod.GET, null, JsonNode.class);
-      addCall("GET", uri, null, resp.getStatusCodeValue(), resp.getBody(), System.currentTimeMillis() - t0);
+      String validatedSignature = safePathSegment(terminalSignature, "Terminal SIgnature");
+
+      endpoint = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals/signature/"
+          + validatedSignature;
+
+      ResponseEntity<JsonNode> resp = rest.exchange(endpoint, HttpMethod.GET, null, JsonNode.class);
+
+      addCall("GET", endpoint, null, resp.getStatusCode().value(), resp.getBody(), System.currentTimeMillis() - t0);
       return Optional.ofNullable(resp.getBody());
-    } catch (HttpClientErrorException.NotFound nf) {
-      addCall("GET", uri, null, 404, null, System.currentTimeMillis() - t0);
-      return Optional.empty();
-    } catch (HttpClientErrorException ex) {
-      addCall("GET", uri, null, ex.getRawStatusCode(), ex.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-      setLastError(fmt(ex));
-      log.error("getTerminalBySignature HTTP {}: {}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
-      return Optional.empty();
+
+    } catch (IllegalArgumentException ex) {
+      endpoint = "dms/terminals/criterias/";
+      return IllegalDataShow(endpoint, ex, "GET", name);
+    } catch (HttpClientErrorException ex2) {
+      if (ex2.getStatusCode() == HttpStatus.NOT_FOUND) {
+        return Optional.empty();
+      }
+      endpoint = "dms/terminals/criterias/";
+      return HttpDataShow(endpoint, ex2, "GET", name);
     } catch (Exception e) {
-      addCall("GET", uri, null, 599, e.getMessage(), System.currentTimeMillis() - t0);
-      setLastError("Exception: " + e.getMessage());
-      log.error("getTerminalBySignature error: {}", e.getMessage());
-      return Optional.empty();
+      endpoint = "dms/terminals/criterias/";
+      return ExceptionDataShow(endpoint, e, "GET", name);
     }
   }
 
-  public Optional<JsonNode> createTerminal(String name, String parentId) {
-    String uri = "/emapi/dms/terminals";
+  public Optional<JsonNode> createTerminal(String tName, String parentId) {
+    String endpoint = null;
     long t0 = System.currentTimeMillis();
+    String name = "createTerminal";
     try {
+
+      String validatedName = safePathSegment(tName, "Terminal Name");
+      String validatedParentId = safePathSegment(parentId, "Parent Id");
+
       Map<String, Object> payload = new LinkedHashMap<>();
       payload.put("active", true);
       payload.put("aesStatus", 0);
@@ -185,77 +202,135 @@ public class EstateManagerClient {
       payload.put("commDetails", null);
       payload.put("description", "");
       payload.put("merchantId", "null");
-      payload.put("name", name);
+      payload.put("name", validatedName);
       payload.put("nextCallDate", null);
-      payload.put("signature", name);
+      payload.put("signature", validatedName);
       payload.put("status", 0);
       payload.put("target", true);
       payload.put("type", "AXIUMNX");
-      payload.put("parent", parentId);
+      payload.put("parent", validatedParentId);
 
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_JSON);
       HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-      ResponseEntity<JsonNode> resp = rest.exchange(uri, HttpMethod.POST, entity, JsonNode.class);
-      addCall("POST", uri, payload, resp.getStatusCodeValue(), resp.getBody(), System.currentTimeMillis() - t0);
+      String encodedUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals/";
+
+      ResponseEntity<JsonNode> resp = rest.exchange(encodedUrl, HttpMethod.POST, entity, JsonNode.class);
+      addCall("POST", encodedUrl, payload, resp.getStatusCode().value(), resp.getBody(),
+          System.currentTimeMillis() - t0);
       return Optional.ofNullable(resp.getBody());
 
-    } catch (HttpClientErrorException ex) {
-      addCall("POST", uri, null, ex.getRawStatusCode(), ex.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-      setLastError(fmt(ex));
-      log.error("createTerminal HTTP {}: {}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
-      return Optional.empty();
+    } catch (IllegalArgumentException ex) {
+      endpoint = "dms/terminals/";
+      return IllegalDataShow(endpoint, ex, "POST", name);
+    } catch (HttpClientErrorException ex2) {
+      endpoint = "dms/terminals/";
+      return HttpDataShow(endpoint, ex2, "POST", name);
     } catch (Exception e) {
-      addCall("POST", uri, null, 599, e.getMessage(), System.currentTimeMillis() - t0);
-      setLastError("Exception: " + e.getMessage());
-      log.error("createTerminal error: {}", e.getMessage());
-      return Optional.empty();
+      endpoint = "dms/terminals/";
+      return ExceptionDataShow(endpoint, e, "POST", name);
     }
   }
 
   public boolean moveToFolder(String terminalId, String folderId) {
-    String uri = "/emapi/dms/terminals/" + terminalId + "/parent/" + folderId;
     long t0 = System.currentTimeMillis();
+    String endpoint = null;
+    String name = "moveToFolder";
+
     try {
-      ResponseEntity<Void> resp = rest.postForEntity(uri, null, Void.class);
-      addCall("POST", uri, null, resp.getStatusCodeValue(), null, System.currentTimeMillis() - t0);
+      String validatedTerminalId = safePathSegment(terminalId, "Terminal Id");
+      String validatedFolderId = safePathSegment(folderId, "Folder Id");
+
+      String encodedUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/dms/terminals";
+      endpoint = UriComponentsBuilder.fromPath(encodedUrl)
+          .pathSegment(validatedTerminalId, "parent", validatedFolderId)
+          .build()
+          .toUriString();
+
+      ResponseEntity<Void> resp = rest.postForEntity(endpoint, HttpMethod.PUT, Void.class);
+      addCall("PUT", endpoint, null, resp.getStatusCode().value(), null, System.currentTimeMillis() - t0);
       return resp.getStatusCode().is2xxSuccessful();
-    } catch (HttpClientErrorException ex) {
-      addCall("POST", uri, null, ex.getRawStatusCode(), ex.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-      setLastError(fmt(ex));
-      log.error("moveToFolder HTTP {}: {}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
+
+    } catch (IllegalArgumentException ex) {
+      endpoint = "dms/terminals/";
+      IllegalDataShow(endpoint, ex, "PUT", name);
+      return false;
+    } catch (HttpClientErrorException ex2) {
+      endpoint = "dms/terminals/";
+      HttpDataShow(endpoint, ex2, "PUT", name);
       return false;
     } catch (Exception e) {
-      addCall("POST", uri, null, 599, e.getMessage(), System.currentTimeMillis() - t0);
-      setLastError("Exception: " + e.getMessage());
-      log.error("moveToFolder error: {}", e.getMessage());
+      endpoint = "dms/terminals/";
+      ExceptionDataShow(endpoint, e, "PUT", name);
       return false;
     }
   }
 
-  public boolean updateTerminalParams(String terminalId, String template, String version, JsonNode body) {
-    String uri = "/emapi/pms/terminals/" + terminalId + "/" + template + "/" + version;
+  public boolean updateTerminalParams(String terminalId, String templateName, String version, JsonNode body) {
     long t0 = System.currentTimeMillis();
+    String endpoint = null;
+    String name = "updateTerminalParams";
+
     try {
+
+      String validatedTerminalId = safePathSegment(terminalId, "Terminal Id");
+      String validatedTemplate = safePathSegment(templateName, "Template name");
+      String validatedVersion = safePathSegment(version, "Template version");
+
+      String encodedUrl = "https://estate-manager-nar01.preprod.icloud.ingenico.com/emapi/pms/terminals";
+      endpoint = UriComponentsBuilder.fromUriString(encodedUrl)
+          .pathSegment(validatedTerminalId, validatedTemplate, validatedVersion)
+          .build()
+          .toUriString();
+
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_JSON);
       HttpEntity<JsonNode> entity = new HttpEntity<>(body, headers);
 
-      ResponseEntity<Void> resp = rest.exchange(uri, HttpMethod.PUT, entity, Void.class);
-      addCall("PUT", uri, body, resp.getStatusCodeValue(), null, System.currentTimeMillis() - t0);
+      ResponseEntity<Void> resp = rest.exchange(endpoint, HttpMethod.PUT, entity, Void.class);
+      addCall("PUT", endpoint, body, resp.getStatusCode().value(), null, System.currentTimeMillis() - t0);
       return resp.getStatusCode().is2xxSuccessful();
 
-    } catch (HttpClientErrorException ex) {
-      addCall("PUT", uri, body, ex.getRawStatusCode(), ex.getResponseBodyAsString(), System.currentTimeMillis() - t0);
-      setLastError(fmt(ex));
-      log.error("updateTerminalParams HTTP {}: {}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
+    } catch (IllegalArgumentException ex) {
+      endpoint = "pms/terminals/";
+      IllegalDataShow(endpoint, ex, "PUT", name);
+      return false;
+    } catch (HttpClientErrorException ex2) {
+      endpoint = "pms/terminals/";
+      HttpDataShow(endpoint, ex2, "PUT", name);
       return false;
     } catch (Exception e) {
-      addCall("PUT", uri, body, 599, e.getMessage(), System.currentTimeMillis() - t0);
-      setLastError("Exception: " + e.getMessage());
-      log.error("updateTerminalParams error: {}", e.getMessage());
+      endpoint = "pms/terminals/";
+      ExceptionDataShow(endpoint, e, "PUT", name);
       return false;
     }
+  }
+
+  private Optional<JsonNode> IllegalDataShow(String endpoint, IllegalArgumentException ex, String verb, String action) {
+    long t0 = System.currentTimeMillis();
+    String info = "[INVALID]";
+    addCall(verb, endpoint + info, null, 400, ex.getMessage(), System.currentTimeMillis() - t0);
+    setLastError(action + " illegal entry: " + ex.getMessage());
+    log.warn(action + ": {}", ex.getMessage());
+    return Optional.empty();
+  }
+
+  private Optional<JsonNode> HttpDataShow(String endpoint, HttpClientErrorException ex, String verb, String action) {
+    long t0 = System.currentTimeMillis();
+    String info = "[ERROR]";
+    addCall(verb, endpoint + info, null, ex.getStatusCode().value(), null, System.currentTimeMillis() - t0);
+    setLastError(fmt(ex));
+    log.error(action + "fallback: {}", ex.getStatusCode().value(), ex.getResponseBodyAsString());
+    return Optional.empty();
+  }
+
+  private Optional<JsonNode> ExceptionDataShow(String endpoint, Exception ex, String verb, String action) {
+    long t0 = System.currentTimeMillis();
+    String info = "[EXCEPTION]";
+    addCall(verb, endpoint + info, null, 599, ex.getMessage(), System.currentTimeMillis() - t0);
+    setLastError("Exception: " + ex.getMessage());
+    log.error(action + "error: {}", ex.getMessage());
+    return Optional.empty();
   }
 }

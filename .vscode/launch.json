@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-Application<fromseptoapi>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "cl.getnet.jsontoapi.Application",
+            "projectName": "fromseptoapi",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-Application<api-coasin-ms-java>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "cl.getnet.jsontoapi.Application",
+            "projectName": "api-coasin-ms-java",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
